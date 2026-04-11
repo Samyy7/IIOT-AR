@@ -1,0 +1,81 @@
+// See https://aka.ms/vscode-remote/devcontainer.json for format details.
+{
+    "name": "iiot ar Dev",
+    "image": "ghcr.io/mittechteam/humble-garden:v2.4.3",
+    "runArgs": [
+        "--cap-add=all",
+        "--security-opt=seccomp:unconfined",
+        "--security-opt=apparmor:unconfined",
+        // "--volume=/tmp/.X11-unix:/tmp/.X11-unix",
+        "--privileged",
+        // mount all of the devices
+        "--volume=/dev:/dev",
+        // mounting dbus
+        // "--volume=/var/run/dbus:/var/run/dbus",
+        // Mount directory for rosbags
+        "--volume=${localWorkspaceFolder}/records:/records",
+        "--net=host",
+        // "--volume=${env:HOME}/.gnupg:/root/.gnupg",
+        // "--volume=${env:HOME}/.gnupg/S.gpg-agent:/root/.gnupg/S.gpg-agent",
+        "--ipc=host",
+        "--name=mtt_R2_dev"
+    ],
+    "workspaceMount": "source=${localWorkspaceFolder},target=/ros2_ws/src,type=bind",
+    "workspaceFolder": "/ros2_ws/src/",
+    "containerEnv": {
+        // "DISPLAY": "${localEnv:DISPLAY}", // Needed for GUI try ":0" for windows
+        // "WAYLAND_DISPLAY": "${localEnv:WAYLAND_DISPLAY}",
+        // "XDG_RUNTIME_DIR": "${localEnv:XDG_RUNTIME_DIR}",
+        // "PULSE_SERVER": "${localEnv:PULSE_SERVER}",
+        "QT_X11_NO_MITSHM": "1",
+        "LIBGL_ALWAYS_SOFTWARE": "1" // Needed for software rendering of opengl
+    },
+    "overrideCommand": false,
+    // Forward the NoVNC port so you can access it in a browser on the host.
+    "forwardPorts": [
+        8000,
+        9002,
+        8765
+    ],
+    "portsAttributes": {
+        "8000": {
+            "label": "NoVNC Display",
+            "onAutoForward": "notify"
+        },
+        "9002": {
+            "label": "Gazebo Websocket",
+            "onAutoForward": "silent"
+        },
+        "8765": {
+            "label": "Foxglove Studio",
+            "onAutoForward": "silent"
+        }
+    },
+    // Set *default* container specific settings.json values on container create.
+    "customizations": {
+        "vscode": {
+            "settings": {
+                "remote.autoForwardPorts": false
+            },
+            "extensions": [
+                "althack.ament-task-provider",
+                "betwo.b2-catkin-tools",
+                "DotJoshJohnson.xml",
+                "github.copilot",
+                "ms-azuretools.vscode-docker",
+                "ms-iot.vscode-ros",
+                "ms-python.autopep8",
+                "ms-python.flake8",
+                "ms-python.python",
+                "ms-vscode.cpptools",
+                "redhat.vscode-xml",
+                "redhat.vscode-yaml",
+                "seunlanlege.action-buttons",
+                "smilerobotics.urdf",
+                "twxs.cmake",
+                "yzhang.markdown-all-in-one",
+                "zachflower.uncrustify"
+            ]
+        }
+    }
+}

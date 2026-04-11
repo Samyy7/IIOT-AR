@@ -1,0 +1,21 @@
+repositories:
+  ps4_controller:
+    type: git
+    url: git@github.com:mittechteam/ds4.git
+    version: v1.0.1
+  hardware_interface:
+    type: git
+    url: git@github.com:mittechteam/mtt_hardware_interfaces.git
+    version: v2.3.1
+  mtt_controllers:
+    type: git
+    url: git@github.com:mittechteam/mtt_ros2_controllers.git
+    version: v2.0.3
+  imu_driver:
+    type: git
+    url: git@github.com:mittechteam/vectornav.git
+    version: v1.1.1
+  mtt_behavior_tree_plugins: 
+    type: git
+    url: git@github.com:mittechteam/mtt_behavior_tree.git
+    version: v1.8.2
