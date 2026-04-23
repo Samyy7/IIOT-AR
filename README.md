@@ -1,57 +1,65 @@
-# ROS 2 AR Motor Dashboard
+# ESP32 WebAR Industrial Dashboard
 
-Welcome to the **ROS 2 AR Motor Dashboard** project! This repository contains the ROS 2 packages and the front-end web dashboard to perform real-time monitoring of BLDC motors (like ODrive) using Vite and `rosbridge_server`.
+Welcome to the **ESP32 WebAR Industrial Dashboard**! This project provides a real-time, zero-latency Augmented Reality (AR) and 2D web dashboard for monitoring industrial sensors and controlling motors directly from an ESP32 micro-controller over local Wi-Fi.
 
 ## Project Overview
 
-This system is designed to provide a real-time Augmented Reality (AR) capable dashboard that dynamically updates motor health indicators.
+This system completely bypasses heavy middleware (like ROS or cloud servers) by using native **WebSockets** running directly on the ESP32. It serves both traditional PCs and modern AR-capable smartphones simultaneously.
 
-**Core Components:**
-1. **Hardware Interfaces:** Contains implementations for various hardware controllers (ODrive, VESC, Servos) to communicate over ROS 2. Provides the `/dynamic_joint_states` topic for observing live telemetry data.
-2. **ROS Bridge Server:** A WebSocket server (`rosbridge_websocket`) routing ROS 2 traffic (specifically on Domain `9`) out to the front-end application via port `9090`.
-3. **IIoT UI Dashboard:** A modern, Vite-powered web application connected via `roslibjs` that subscribes to motor states and provides an interactive user experience.
+**Core Features:**
+1. **ESP32 Backend:** Reads live Temperature (DHT22) and Current Draw (ACS712) sensors. 
+2. **2D Dashboard (PC):** The ESP32 natively serves a beautiful 2D dashboard from its own IP address. No internet or NodeJS required.
+3. **WebAR Dashboard (Mobile):** A Vite-powered frontend (located in the `iiot` folder) uses A-Frame and AR.js. When pointed at a Hiro Marker, it renders 3D holographic data floating in physical space.
+4. **Safety Interlock:** The ESP32 is programmed with hardcoded safety limits. If Temperature > 27°C **AND** Current > 0.20A, it instantly cuts power to the motor and blasts a critical warning across the WebSocket.
 
-## Quick Start Commands
+---
 
-We've provided a few helper scripts located at the workspace root (`/ros2_ws`) to make managing the dashboard's lifecycle incredibly easy.
+## Hardware Configuration
 
-### ▶️ Starting the System
+Before uploading the code, wire your ESP32 as follows:
 
-To launch the ODrive hardware interface, spawn the ROS WebSocket bridge, and start the Vite dev server, run:
+| Component | ESP32 Pin | Important Notes |
+| :--- | :--- | :--- |
+| **DHT22 (Temp)** | `D18` | Standard digital read. |
+| **ACS712 (Current)** | `D32` | **CRITICAL:** The ACS712 requires 5V logic. Power extreme its `VCC` using the ESP32's `VIN` (5V USB) pin. Do not use 3.3V. |
+| **Motor Relay** | `D21` | Toggled by safety logic and AR interface. |
+| **Status LED** | `D2` | Matches the Motor Relay state. |
 
-```bash
-cd /ros2_ws
-./start.sh
-```
+---
 
-```bash
-ros2 topic pub /velocity_controller/commands std_msgs/msg/Float64MultiArray "data: [ 100.0 ]"
-```
+## 🚀 Quick Start Guide
 
-**What it does:**
-- Sources your ROS 2 `humble` workspace automatically.
-- Launches the `odrive_hardware_interface`.
-- Starts `rosbridge_websocket` on `ROS_DOMAIN_ID=9`.
-- Spins up the Vite proxy server for the frontend UI.
+### 1. Flash the ESP32
+1. Open `/esp32_ar_dashboard/esp32_ar_dashboard.ino` in the Arduino IDE.
+2. Change the `ssid` and `password` variables to match your Home Wi-Fi / Hotspot.
+3. Upload to your ESP32.
+4. Open the **Serial Monitor (115200 baud)** to find your assigned IP Address.
 
-### 🛑 Stopping the System Cleanly
+### 2. View the 2D Dashboard (PC)
+Simply type the ESP32's IP Address into your PC's browser (e.g. `http://192.168.1.15`). You will get the full 2D dashboard.
 
-Sometimes background nodes and WebSockets drop to the background and keep port `9090` busy. If you encounter an `[Errno 98] Address already in use` error or simply want to cleanly shut everything down, run:
+### 3. Launch the AR Dashboard (Phone)
+We use Vite to host the AR web app locally with A-Frame tracking.
 
-```bash
-cd /ros2_ws
-./stop.sh
-```
+1. Open a terminal and navigate to the `iiot` folder:
+   ```bash
+   cd iiot
+   npm install
+   npm run dev -- --host
+   ```
+2. Vite will give you a **Network Address** (e.g., `http://192.168.1.50:5173/`).
+3. Connect your phone to the same Wi-Fi and navigate to that address.
+4. It will prompt you for your ESP32's IP address.
+5. Point your camera at a standard printed **Hiro Marker** to see the hologram!
 
-**What it does:**
-- Force-kills `rosbridge_server` zombie processes.
-- Terminates all active ROS 2 launch tasks.
-- Kills the Node/Vite instances cleanly.
+---
 
-## Architecture & Communication
+## 🛠️ Fixing Mobile Camera Permissions
 
-- **ROS Domain ID:** `9`
-- **Bridge Port (Internal):** `9090`
-- **Main Topic:** `/dynamic_joint_states` (published as `std_msgs/msg/Float64MultiArray` or compatible format)
+Modern mobile browsers (Chrome/Safari) **block the camera** on local network IP addresses because they require encrypted `https://`. To quickly bypass this for local development testing on Android:
 
-Make sure no other services on your machine are utilizing port 9090, or the `rosbridge_server` will fail to bind properly!
+1. Open **Chrome** on your phone.
+2. Go to: `chrome://flags/#unsafely-treat-insecure-origin-as-secure`
+3. Enter your laptop's Vite Network Address (e.g., `http://192.168.1.50:5173`) into the text box.
+4. Change the dropdown to **Enabled** and Relaunch Chrome.
+5. Your camera will now work perfectly on your local network!

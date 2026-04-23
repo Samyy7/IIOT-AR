@@ -11,64 +11,64 @@ document.addEventListener('DOMContentLoaded', () => {
 
         let updateInterval;
 
-        // Base statistics for our dummy Industrial Motor
-        const baseRPM = 1450;
-        const baseCurrent = 5.2;
-        
         // Data history for graphs
         const maxDataPoints = 60;
-        const velocityHistory = new Array(maxDataPoints).fill(0);
-        const currentHistory = new Array(maxDataPoints).fill(0);
+        const tempHistory = new Array(maxDataPoints).fill(0);
+        const ampHistory = new Array(maxDataPoints).fill(0);
 
         // Current state
-        let currentVelocity = 0;
-        let currentBusCurrent = 0;
+        let currentTemp = 0;
+        let currentAmp = 0;
 
-        // ROS Setup
-        const rosProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const rosUrl = `${rosProtocol}//${window.location.host}/rosbridge`;
-        const ros = new ROSLIB.Ros({
-            url : rosUrl
-        });
+        // Safety Thresholds
+        const TEMP_THRESHOLD = 27.0;
+        const CURRENT_THRESHOLD = 0.20;
 
-        ros.on('connection', function() {
-            console.log('Connected to websocket server.');
-            statusText.innerText = 'Connected to ROS Bridge';
-        });
+        // ESP32 WebSocket Setup
+        let espIp = localStorage.getItem("espIp") || "192.168.1.30";
+        espIp = prompt("Enter ESP32 IP address (check Arduino Serial Monitor):", espIp);
+        if(espIp) localStorage.setItem("espIp", espIp);
 
-        ros.on('error', function(error) {
-            console.log('Error connecting to websocket server: ', error);
-            statusText.innerText = 'WebSocket Error';
-        });
+        const wsUrl = `ws://${espIp}/ws`;
+        let ws;
 
-        ros.on('close', function() {
-            console.log('Connection to websocket server closed.');
-            statusText.innerText = 'WebSocket Closed';
-        });
+        function connectWebSocket() {
+            ws = new WebSocket(wsUrl);
+            window.espWs = ws;
 
-        const jointStateListener = new ROSLIB.Topic({
-            ros : ros,
-            name : '/dynamic_joint_states',
-            messageType : 'control_msgs/msg/DynamicJointState'
-        });
+            ws.onopen = function() {
+                console.log('Connected to ESP32 websocket server.');
+                statusText.innerText = 'Connected to ESP32';
+            };
 
-        jointStateListener.subscribe(function(message) {
-            const jointIndex = message.joint_names.indexOf('wheel_joint');
-            if (jointIndex !== -1) {
-                const ifaces = message.interface_values[jointIndex].interface_names;
-                const vals = message.interface_values[jointIndex].values;
-                
-                const velIndex = ifaces.indexOf('velocity');
-                if (velIndex !== -1) {
-                    currentVelocity = vals[velIndex];
+            ws.onerror = function(error) {
+                console.log('Error connecting to websocket server: ', error);
+                statusText.innerText = 'WebSocket Error. Retrying...';
+            };
+
+            ws.onclose = function() {
+                console.log('Connection to websocket server closed. Retrying in 2s...');
+                statusText.innerText = 'WebSocket Closed. Retrying...';
+                setTimeout(connectWebSocket, 2000);
+            };
+
+            ws.onmessage = function(event) {
+                let msg = event.data;
+                if (msg.startsWith("$SENSOR")) {
+                    let parts = msg.split(",");
+                    let type = parts[1];
+                    let val = parseFloat(parts[2].replace("*", ""));
+                    
+                    if (type === "TEMP") {
+                        currentTemp = val;
+                    } else if (type === "CUR") {
+                        currentAmp = val;
+                    }
                 }
-                
-                const currIndex = ifaces.indexOf('bus_current');
-                if (currIndex !== -1) {
-                    currentBusCurrent = vals[currIndex];
-                }
-            }
-        });
+            };
+        }
+
+        connectWebSocket();
 
         // Helper to draw sparkline graphs inline
         const drawSparkline = (ctx, data, x, y, width, height, color, min, max) => {
@@ -109,10 +109,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!ctx) return;
 
             // Push to history arrays
-            velocityHistory.shift();
-            velocityHistory.push(currentVelocity);
-            currentHistory.shift();
-            currentHistory.push(currentBusCurrent);
+            tempHistory.shift();
+            tempHistory.push(currentTemp);
+            ampHistory.shift();
+            ampHistory.push(currentAmp);
 
             // Draw to canvas for robust 2D rendering without CORS font issues
             ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -126,19 +126,29 @@ document.addEventListener('DOMContentLoaded', () => {
             ctx.fillRect(0, canvas.height - 30, canvas.width, 30);
 
             // Title
-            ctx.fillStyle = '#e94560';
+            ctx.fillStyle = '#00D2FF';
             ctx.font = 'bold 50px Inter, sans-serif';
-            ctx.fillText('BLDC MOTOR STATUS', 50, 80);
+            ctx.fillText('Motor monitor ', 50, 80);
 
-            // Health Indicator
+            // Health Indicator dynamically matching backend safety constraints
             let healthColor = '#4ecca3';
             let healthText = 'HEALTHY';
-            let healthDotX = 760; // adjusting for wider text
-            if (currentBusCurrent >= 0.33) {
-                healthColor = '#e94560'; // red warning
-                healthText = 'WARNING';
+            let healthDotX = 760; 
+            
+            if (currentTemp > TEMP_THRESHOLD && Math.abs(currentAmp) > CURRENT_THRESHOLD) {
+                healthColor = '#FF007A'; // red critical
+                healthText = 'CRIT STOP';
+                healthDotX = 660;
+            } else if (currentTemp > TEMP_THRESHOLD) {
+                healthColor = '#FFA500'; // orange warning
+                healthText = 'HIGH TEMP';
+                healthDotX = 660;
+            } else if (Math.abs(currentAmp) > CURRENT_THRESHOLD) {
+                healthColor = '#FFA500'; // orange warning
+                healthText = 'HIGH CURR';
+                healthDotX = 660;
             } else {
-                healthDotX = 780; // slightly different position for shorter word
+                healthDotX = 780;
             }
 
             ctx.fillStyle = healthColor;
@@ -148,38 +158,38 @@ document.addEventListener('DOMContentLoaded', () => {
             ctx.font = 'bold 35px Inter, sans-serif';
             ctx.fillText(healthText, healthDotX + 30, 75);
 
-            // Label Velocity
+            // Label Temp
             ctx.fillStyle = '#a0aab2';
             ctx.font = '45px Inter, sans-serif';
-            ctx.fillText('Velocity', 50, 200);
+            ctx.fillText('Temperature', 50, 200);
             
             // Label Current
-            ctx.fillText('Bus Current', 50, 390);
+            ctx.fillText('Current Draw', 50, 390);
 
-            // Value Velocity
-            ctx.fillStyle = '#ffffff';
+            // Value Temp
+            ctx.fillStyle = '#00FF87';
             ctx.font = 'bold 85px Inter, sans-serif';
             ctx.textAlign = 'right';
-            const velStr = Number(currentVelocity).toFixed(2);
-            ctx.fillText(velStr, 950, 210);
+            const tempStr = Number(currentTemp).toFixed(1) + " °C";
+            ctx.fillText(tempStr, 950, 210);
 
             // Dynamic graph limits
-            const minV = Math.min(...velocityHistory) - 1.0;
-            const maxV = Math.max(...velocityHistory) + 1.0;
-            const minC = Math.min(...currentHistory) - 1.0;
-            const maxC = Math.max(...currentHistory) + 1.0;
+            const minT = Math.min(...tempHistory) - 1.0;
+            const maxT = Math.max(...tempHistory) + 1.0;
+            const minC = Math.min(...ampHistory) - 0.5;
+            const maxC = Math.max(...ampHistory) + 0.5;
 
-            // Draw Velocity Graph 
-            drawSparkline(ctx, velocityHistory, 50, 230, 900, 80, '#ffffff', minV, maxV);
+            // Draw Temp Graph 
+            drawSparkline(ctx, tempHistory, 50, 230, 900, 80, '#00FF87', minT, maxT);
 
             // Value Current
-            ctx.fillStyle = healthColor; // Matches the dynamically determined health color
+            ctx.fillStyle = '#00D2FF';
             ctx.font = 'bold 85px Inter, sans-serif';
-            const curStr = Number(currentBusCurrent).toFixed(2);
+            const curStr = Number(currentAmp).toFixed(2) + " A";
             ctx.fillText(curStr, 950, 400);
 
             // Draw Current Graph
-            drawSparkline(ctx, currentHistory, 50, 420, 900, 80, '#ffffff', minC, maxC);
+            drawSparkline(ctx, ampHistory, 50, 420, 900, 80, '#00D2FF', minC, maxC);
 
             // Reset alignment
             ctx.textAlign = 'left';
@@ -195,10 +205,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (marker) {
             marker.addEventListener('markerFound', () => {
-                if (ros.isConnected) {
-                    statusText.innerText = 'Motor Detected! Live Data Active';
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    statusText.innerText = 'Marker Detected! Live Data Active';
                 } else {
-                    statusText.innerText = 'Motor Detected! Waiting for ROS...';
+                    statusText.innerText = 'Marker Detected! Waiting for ESP32...';
                 }
                 // Fade out overlay to reveal AR clearly
                 uiOverlay.style.opacity = '0';
@@ -211,7 +221,7 @@ document.addEventListener('DOMContentLoaded', () => {
             marker.addEventListener('markerLost', () => {
                 // Fade overlay back in
                 uiOverlay.style.opacity = '1';
-                statusText.innerText = 'Scanning for Motor Marker...';
+                statusText.innerText = 'Scanning for Hiro Marker...';
                 
                 if (updateInterval) {
                     clearInterval(updateInterval);
@@ -220,3 +230,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }, 1000); // slight delay ensures DOM completely populated by a-frame
 });
+
+window.toggleMotorAR = function() {
+    // Send toggle command specifically to existing websocket if open
+    if(window.espWs && window.espWs.readyState === 1) {
+        window.espWs.send("$LED,TOGGLE*");
+    }
+};
