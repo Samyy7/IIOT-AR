@@ -21,8 +21,8 @@ document.addEventListener('DOMContentLoaded', () => {
         let currentAmp = 0;
 
         // Safety Thresholds
-        const TEMP_THRESHOLD = 27.0;
-        const CURRENT_THRESHOLD = 0.20;
+        const TEMP_THRESHOLD = 35.0;
+        const CURRENT_THRESHOLD = 0.25;
 
         // ESP32 WebSocket Setup
         let espIp = localStorage.getItem("espIp") || "192.168.1.30";

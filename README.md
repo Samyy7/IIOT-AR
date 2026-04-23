@@ -1,4 +1,4 @@
-# ESP32 WebAR Industrial Dashboard
+# IoT PBL
 
 Welcome to the **ESP32 WebAR Industrial Dashboard**! This project provides a real-time, zero-latency Augmented Reality (AR) and 2D web dashboard for monitoring industrial sensors and controlling motors directly from an ESP32 micro-controller over local Wi-Fi.
 
@@ -27,7 +27,7 @@ Before uploading the code, wire your ESP32 as follows:
 
 ---
 
-## 🚀 Quick Start Guide
+## Quick Start Guide
 
 ### 1. Flash the ESP32
 1. Open `/esp32_ar_dashboard/esp32_ar_dashboard.ino` in the Arduino IDE.
@@ -54,7 +54,7 @@ We use Vite to host the AR web app locally with A-Frame tracking.
 
 ---
 
-## 🛠️ Fixing Mobile Camera Permissions
+## Fixing Mobile Camera Permissions
 
 Modern mobile browsers (Chrome/Safari) **block the camera** on local network IP addresses because they require encrypted `https://`. To quickly bypass this for local development testing on Android:
 
