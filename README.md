@@ -63,3 +63,5 @@ Modern mobile browsers (Chrome/Safari) **block the camera** on local network IP 
 3. Enter your laptop's Vite Network Address (e.g., `http://192.168.1.50:5173`) into the text box.
 4. Change the dropdown to **Enabled** and Relaunch Chrome.
 5. Your camera will now work perfectly on your local network!
+
+https://chatgpt.com/share/69f0e68e-54d8-83e8-b4de-d199aef3fe98
